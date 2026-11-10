@@ -7,3 +7,7 @@ license-file = "LICENSE.txt"
 
 [lib]
 name = "chomp_ai"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"]}
+rand = "0.10.3"

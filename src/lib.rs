@@ -1,6 +1,6 @@
 //! Chomp AI
-//! Your Name and Bart Massey 2023
-
+//! Callie Reimann and Bart Massey 2023
+use rand::seq::IndexedRandom;
 /// Maximum number of rows the AI can handle.
 const MAX_ROWS: usize = 4;
 /// Maximum number of columns the AI can handle.
@@ -50,7 +50,11 @@ impl std::error::Error for ChompError {}
 /// Clones must have the same dimensions and squares, with independent
 /// state: making a move on a clone must not change the original.
 #[derive(Debug, Clone)]
-pub struct Chomp;
+pub struct Chomp {
+    orows: usize, //original number of rows and columns, for the dimensions command.
+    ocols: usize,
+    board: [[bool; 4]; 5],
+}
 
 impl Chomp {
     /// Make a new Chomp board with the given size for this game.
@@ -63,14 +67,24 @@ impl Chomp {
         if nrows == 0 || ncols == 0 || nrows > MAX_ROWS || ncols > MAX_COLS {
             return Err(ChompError::InvalidSize { nrows, ncols });
         }
-        todo!()
+        let mut board = [[false; 4]; 5];
+        for a in board.iter_mut().take(ncols) {
+            for b in a.iter_mut().take(nrows) {
+                *b = true;
+            }
+        }
+        Ok(Chomp {
+            orows: nrows,
+            ocols: ncols,
+            board,
+        })
     }
 
     /// Return the logical board dimensions as `(nrows, ncols)`.
     /// These are the original dimensions, even after squares are eaten.
     /// This method must not change the board.
     pub fn dimensions(&self) -> (usize, usize) {
-        todo!()
+        (self.orows, self.ocols)
     }
 
     /// Return whether the square at `(row, col)` is uneaten.
@@ -79,7 +93,10 @@ impl Chomp {
     /// logical dimensions, including arbitrarily large coordinates.
     /// This method must not change the board or panic.
     pub fn is_present(&self, row: usize, col: usize) -> bool {
-        todo!("inspect the square at ({row}, {col})")
+        if row > self.orows || col > self.ocols {
+            return false;
+        }
+        self.board[col][row]
     }
 
     /// Make a move on the current board, "eating" all cells
@@ -96,7 +113,15 @@ impl Chomp {
     /// eaten. This includes every move after the poison is eaten.
     /// Invalid moves must leave the board unchanged and must not panic.
     pub fn make_move(&mut self, row: usize, col: usize) -> Result<(), ChompError> {
-        todo!("make a move at ({row}, {col})")
+        if row >= self.orows || col >= self.ocols || !self.board[col][row] {
+            return Err(ChompError::InvalidMove { row, col });
+        }
+        for c in col..self.ocols {
+            for r in row..self.orows {
+                self.board[c][r] = false;
+            }
+        }
+        Ok(())
     }
 
     /// Returns `Some` winning move for this position as `(row, col)`.
@@ -124,7 +149,53 @@ impl Chomp {
     ///    return no winning move
     /// ```
     pub fn winning_move(&self) -> Option<(usize, usize)> {
-        todo!()
+        for r in 0..self.orows {
+            for c in 0..self.ocols {
+                if (r == 0 && c == 0) || !self.board[c][r] {
+                    continue;
+                } else {
+                    let mut copy = self.clone();
+                    let _ = copy.make_move(r, c);
+                    if copy.winning_move().is_none() {
+                        return Some((r, c));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Returns 'Some' valid randomly chosen move as '(row, col)'
+    /// Returns 'None' if there aren't any valid moves to make (i.e. the poison has already been eaten)
+    ///
+    pub fn valid_move(&self) -> Option<(usize, usize)> {
+        let mut rng = rand::rng();
+        let mut options: Vec<(usize, usize)> = [].to_vec();
+        for r in 0..self.orows {
+            for c in 0..self.ocols {
+                if self.board[c][r] {
+                    options.push((r, c));
+                }
+            }
+        }
+        let output = options.choose(&mut rng);
+        output.copied()
+    }
+
+    pub fn automate(&mut self) -> Result<(), ChompError> {
+        let result = self.winning_move();
+        let (a, b);
+        match result {
+            None => {
+                let newmove = self.valid_move();
+                match newmove {
+                    None => return Err(ChompError::InvalidMove { row: 0, col: 0 }),
+                    Some((x, y)) => (a, b) = (x, y),
+                }
+            }
+            Some(x) => (a, b) = x,
+        }
+        self.make_move(a, b)
     }
 }
 
